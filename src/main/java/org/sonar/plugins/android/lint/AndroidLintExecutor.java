@@ -37,12 +37,16 @@ import com.android.tools.lint.detector.api.Location;
 import com.android.tools.lint.detector.api.Project;
 import com.android.tools.lint.detector.api.Severity;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.api.BatchExtension;
 import org.sonar.api.batch.ProjectClasspath;
 import org.sonar.api.batch.SensorContext;
+import org.sonar.api.batch.fs.FilePredicate;
+import org.sonar.api.batch.fs.FileSystem;
+import org.sonar.api.batch.fs.InputFile;
 import org.sonar.api.profiles.RulesProfile;
 import org.sonar.api.resources.Resource;
 import org.sonar.api.rules.Rule;
@@ -62,7 +66,7 @@ import java.util.Set;
 public class AndroidLintExecutor extends LintClient implements BatchExtension {
 
   private static final Logger LOG = LoggerFactory.getLogger(AndroidLintExecutor.class);
-  private ModuleFileSystem fs;
+  private FileSystem fs;
   private SensorContext sensorContext;
   private org.sonar.api.resources.Project project;
   private RuleFinder ruleFinder;
@@ -70,7 +74,7 @@ public class AndroidLintExecutor extends LintClient implements BatchExtension {
   private ProjectClasspath projectClasspath;
   private IssueRegistry registry;
 
-  public AndroidLintExecutor(RuleFinder ruleFinder, ModuleFileSystem fs, RulesProfile rulesProfile, ProjectClasspath projectClasspath) {
+  public AndroidLintExecutor(RuleFinder ruleFinder, FileSystem fs, RulesProfile rulesProfile, ProjectClasspath projectClasspath) {
     this.ruleFinder = ruleFinder;
     this.fs = fs;
     this.rulesProfile = rulesProfile;
@@ -79,7 +83,7 @@ public class AndroidLintExecutor extends LintClient implements BatchExtension {
   }
 
   @VisibleForTesting
-  AndroidLintExecutor(RuleFinder ruleFinder, ModuleFileSystem fs, RulesProfile rulesProfile, ProjectClasspath projectClasspath, IssueRegistry registry) {
+  AndroidLintExecutor(RuleFinder ruleFinder, FileSystem fs, RulesProfile rulesProfile, ProjectClasspath projectClasspath, IssueRegistry registry) {
     this(ruleFinder, fs, rulesProfile, projectClasspath);
     this.registry = registry;
   }
@@ -184,12 +188,12 @@ public class AndroidLintExecutor extends LintClient implements BatchExtension {
   @Override
   @NonNull
   protected ClassPathInfo getClassPath(@NonNull Project project) {
-    List<File> sources = fs.sourceDirs();
-    List<File> classes = fs.binaryDirs();
+    Iterable<File> sources = fs.files(new TypePredicate(InputFile.Type.MAIN));
+    Iterable<File> classes = fs.files(new TypePredicate(InputFile.Type.TEST)); // ?
     List<File> libraries = new ArrayList<File>();
     try {
       Set<String> binaryDirPaths = Sets.newHashSet();
-      for (File binaryDir : fs.binaryDirs()) {
+      for (File binaryDir : classes) {
         if (binaryDir.exists()) {
           binaryDirPaths.add(binaryDir.getCanonicalPath());
         }
@@ -204,7 +208,7 @@ public class AndroidLintExecutor extends LintClient implements BatchExtension {
       throw new SonarException("Unable to configure project classpath", e);
     }
 
-    return new ClassPathInfo(sources, classes, libraries);
+    return new ClassPathInfo(Lists.newArrayList(sources), Lists.newArrayList(classes), libraries);
   }
 
   @Override
@@ -225,4 +229,21 @@ public class AndroidLintExecutor extends LintClient implements BatchExtension {
       return ""; //$NON-NLS-1$
     }
   }
+
+    /**
+     *
+     */
+    private static final class TypePredicate implements FilePredicate {
+
+        private final InputFile.Type type;
+
+        TypePredicate(InputFile.Type type) {
+            this.type = type;
+        }
+
+        @Override
+        public boolean apply(InputFile f) {
+            return type == f.type();
+        }
+    }
 }
