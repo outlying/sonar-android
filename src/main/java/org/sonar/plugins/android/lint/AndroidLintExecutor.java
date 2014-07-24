@@ -20,22 +20,10 @@
 package org.sonar.plugins.android.lint;
 
 import com.android.annotations.NonNull;
-import com.android.tools.lint.LintCliXmlParser;
-import com.android.tools.lint.LombokParser;
+import com.android.annotations.Nullable;
 import com.android.tools.lint.checks.BuiltinIssueRegistry;
-import com.android.tools.lint.client.api.Configuration;
-import com.android.tools.lint.client.api.IDomParser;
-import com.android.tools.lint.client.api.IJavaParser;
-import com.android.tools.lint.client.api.IssueRegistry;
-import com.android.tools.lint.client.api.LintClient;
-import com.android.tools.lint.client.api.LintDriver;
-import com.android.tools.lint.client.api.LintRequest;
-import com.android.tools.lint.detector.api.Context;
-import com.android.tools.lint.detector.api.Issue;
-import com.android.tools.lint.detector.api.LintUtils;
-import com.android.tools.lint.detector.api.Location;
-import com.android.tools.lint.detector.api.Project;
-import com.android.tools.lint.detector.api.Severity;
+import com.android.tools.lint.client.api.*;
+import com.android.tools.lint.detector.api.*;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -52,7 +40,6 @@ import org.sonar.api.resources.Resource;
 import org.sonar.api.rules.Rule;
 import org.sonar.api.rules.RuleFinder;
 import org.sonar.api.rules.Violation;
-import org.sonar.api.scan.filesystem.ModuleFileSystem;
 import org.sonar.api.utils.SonarException;
 import org.sonar.api.utils.TimeProfiler;
 
@@ -135,13 +122,17 @@ public class AndroidLintExecutor extends LintClient implements BatchExtension {
   }
 
   private Violation createViolation(Location location, Rule rule) {
+
     Resource resource;
+
     if (location.getFile().isDirectory()) {
       resource = org.sonar.api.resources.Directory.fromIOFile(location.getFile(), project);
     } else {
       resource = org.sonar.api.resources.File.fromIOFile(location.getFile(), project);
     }
+
     resource = sensorContext.getResource(resource);
+
     if (resource == null || !"java".equals(resource.getLanguage().getKey())) {
       return Violation.create(rule, project);
     } else {
@@ -211,17 +202,17 @@ public class AndroidLintExecutor extends LintClient implements BatchExtension {
     return new ClassPathInfo(Lists.newArrayList(sources), Lists.newArrayList(classes), libraries);
   }
 
-  @Override
-  public IDomParser getDomParser() {
-    return new LintCliXmlParser();
-  }
+    @Override
+    public XmlParser getXmlParser() {
+        return null;
+    }
 
-  @Override
-  public IJavaParser getJavaParser() {
-    return new LombokParser();
-  }
+    @Override
+    public JavaParser getJavaParser(@Nullable Project project) {
+        return null;
+    }
 
-  @Override
+    @Override
   public String readFile(File file) {
     try {
       return LintUtils.getEncodedString(this, file);
